@@ -1,0 +1,1 @@
+- [API date-only contracts](api-date-contracts.md) — keep calendar dates as unshifted strings across OpenAPI, the database, and JSON.

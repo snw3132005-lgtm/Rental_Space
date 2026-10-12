@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: rentals
+    description: Rental search, availability, and viewing requests
+  - name: assistant
+    description: Conversational rental search assistant
 paths:
   /healthz:
     get:
@@ -24,6 +28,130 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /properties:
+    get:
+      operationId: listProperties
+      tags: [rentals]
+      summary: Search available rental properties
+      parameters:
+        - name: city
+          in: query
+          schema: { type: string }
+        - name: maxRent
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: bedrooms
+          in: query
+          schema: { type: integer, minimum: 0 }
+        - name: featured
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Matching rental properties
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Property" }
+  /properties/{propertyId}:
+    get:
+      operationId: getProperty
+      tags: [rentals]
+      summary: Get a rental property
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Rental property
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Property" }
+        "404":
+          description: Property not found
+  /properties/{propertyId}/availability/{date}:
+    get:
+      operationId: getPropertyAvailability
+      tags: [rentals]
+      summary: Check available site visit time slots for a date
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - name: date
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Time slots for a property and date
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Availability" }
+        "404":
+          description: Property not found
+  /viewings:
+    post:
+      operationId: createViewing
+      tags: [rentals]
+      summary: Request a site visit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ViewingInput" }
+      responses:
+        "201":
+          description: Site visit requested
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Viewing" }
+        "400":
+          description: Invalid request or unavailable time
+        "404":
+          description: Property not found
+  /reservations:
+    post:
+      operationId: createReservation
+      tags: [rentals]
+      summary: Submit a rental reservation request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReservationInput" }
+      responses:
+        "201":
+          description: Reservation request saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Reservation" }
+        "400":
+          description: Invalid move-in and move-out dates
+        "404":
+          description: Property not found
+  /assistant:
+    post:
+      operationId: chatWithAssistant
+      tags: [assistant]
+      summary: Ask the rental assistant to search and compare homes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AssistantInput" }
+      responses:
+        "200":
+          description: Assistant reply and matching properties
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssistantReply" }
+        "502":
+          description: Assistant provider unavailable
 components:
   schemas:
     HealthStatus:
@@ -33,4 +161,120 @@ components:
           type: string
       required:
         - status
+    Property:
+      type: object
+      required: [id, title, address, city, neighborhood, rent, bedrooms, bathrooms, areaSqFt, availableFrom, description, amenities, imageUrl, propertyType, leaseTerm, featured]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        address: { type: string }
+        city: { type: string }
+        neighborhood: { type: string }
+        rent: { type: integer }
+        bedrooms: { type: integer }
+        bathrooms: { type: integer }
+        areaSqFt: { type: integer }
+        availableFrom: { type: string }
+        description: { type: string }
+        amenities:
+          type: array
+          items: { type: string }
+        imageUrl: { type: string, format: uri }
+        propertyType: { type: string }
+        leaseTerm: { type: string }
+        featured: { type: boolean }
+    Availability:
+      type: object
+      required: [propertyId, date, slots]
+      properties:
+        propertyId: { type: integer }
+        date: { type: string }
+        slots:
+          type: array
+          items: { type: string }
+    ViewingInput:
+      type: object
+      required: [propertyId, fullName, email, preferredDate, preferredTime]
+      properties:
+        propertyId: { type: integer, minimum: 1 }
+        fullName: { type: string, minLength: 2, maxLength: 120 }
+        email: { type: string, format: email, maxLength: 254 }
+        phone: { type: string, maxLength: 40 }
+        preferredDate: { type: string }
+        preferredTime: { type: string }
+        notes: { type: string, maxLength: 1000 }
+    Viewing:
+      type: object
+      required: [id, propertyId, propertyTitle, fullName, email, phone, preferredDate, preferredTime, notes, createdAt]
+      properties:
+        id: { type: integer }
+        propertyId: { type: integer }
+        propertyTitle: { type: string }
+        fullName: { type: string }
+        email: { type: string }
+        phone: { type: ["string", "null"] }
+        preferredDate: { type: string }
+        preferredTime: { type: string }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string }
+    ReservationInput:
+      type: object
+      required: [propertyId, fullName, email, moveInDate, moveOutDate]
+      properties:
+        propertyId: { type: integer, minimum: 1 }
+        fullName: { type: string, minLength: 2, maxLength: 120 }
+        email: { type: string, format: email, maxLength: 254 }
+        phone: { type: string, maxLength: 40 }
+        moveInDate: { type: string }
+        moveOutDate: { type: string }
+        notes: { type: string, maxLength: 1000 }
+    Reservation:
+      type: object
+      required: [id, propertyId, propertyTitle, fullName, email, phone, moveInDate, moveOutDate, notes, status, createdAt]
+      properties:
+        id: { type: integer }
+        propertyId: { type: integer }
+        propertyTitle: { type: string }
+        fullName: { type: string }
+        email: { type: string }
+        phone: { type: ["string", "null"] }
+        moveInDate: { type: string }
+        moveOutDate: { type: string }
+        notes: { type: ["string", "null"] }
+        status: { type: string, enum: [requested] }
+        createdAt: { type: string }
+    AssistantMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role: { type: string, enum: [user, assistant] }
+        content: { type: string, minLength: 1, maxLength: 2000 }
+    AssistantInput:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          minItems: 1
+          maxItems: 16
+          items: { $ref: "#/components/schemas/AssistantMessage" }
+    AssistantReply:
+      type: object
+      required: [answer, properties, preferences]
+      properties:
+        answer: { type: string }
+        properties:
+          type: array
+          items: { $ref: "#/components/schemas/Property" }
+        preferences:
+          $ref: "#/components/schemas/RentalPreferences"
+    RentalPreferences:
+      type: object
+      required: [location, maxRent, bedrooms, moveInDate, moveOutDate]
+      properties:
+        location: { type: ["string", "null"] }
+        maxRent: { type: ["integer", "null"] }
+        bedrooms: { type: ["integer", "null"] }
+        moveInDate: { type: ["string", "null"] }
+        moveOutDate: { type: ["string", "null"] }
 
