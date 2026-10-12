@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Nestly Rentals"
+description = "A rental discovery website where renters chat with an AI guide to find homes, compare rents, check availability, and request in-person visits."
+version = "1.0.0"
+id = "artifacts/rental-finder"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18918
+
+[services.development]
+run = "pnpm --filter @workspace/rental-finder run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/rental-finder", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/rental-finder/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18918"
+BASE_PATH = "/"
